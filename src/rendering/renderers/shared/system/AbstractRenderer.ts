@@ -1,7 +1,7 @@
 import { Color } from '../../../../color/Color';
 import { loadEnvironmentExtensions } from '../../../../environment/autoDetectEnvironment';
 import { Container } from '../../../../scene/container/Container';
-import { unsafeEvalSupported } from '../../../../utils/browser/unsafeEvalSupported';
+// import { unsafeEvalSupported } from '../../../../utils/browser/unsafeEvalSupported';
 import { deprecation, v8_0_0 } from '../../../../utils/logging/deprecation';
 import { EventEmitter } from '../../../../utils/utils';
 import { CLEAR } from '../../gl/const';
@@ -23,22 +23,20 @@ import type { ViewSystem, ViewSystemDestroyOptions } from '../view/ViewSystem';
 import type { SharedRendererOptions } from './SharedSystems';
 import type { System, SystemConstructor } from './System';
 
-export interface RendererConfig
-{
+export interface RendererConfig {
     type: number;
     name: string;
     runners?: string[];
-    systems: {name: string, value: SystemConstructor}[];
-    renderPipes: {name: string, value: PipeConstructor}[];
-    renderPipeAdaptors: {name: string, value: any}[];
+    systems: { name: string, value: SystemConstructor }[];
+    renderPipes: { name: string, value: PipeConstructor }[];
+    renderPipeAdaptors: { name: string, value: any }[];
 }
 
 /**
  * The options for rendering a view.
  * @memberof rendering
  */
-export interface RenderOptions extends ClearOptions
-{
+export interface RenderOptions extends ClearOptions {
     /** The container to render. */
     container: Container;
     /** the transform to apply to the container. */
@@ -49,8 +47,7 @@ export interface RenderOptions extends ClearOptions
  * The options for clearing the render target.
  * @memberof rendering
  */
-export interface ClearOptions
-{
+export interface ClearOptions {
     /**
      * The render target to render. if this target is a canvas and  you are using the WebGL renderer,
      * please ensure you have set `multiView` to `true` on renderer.
@@ -79,7 +76,7 @@ const defaultRunners = [
 ] as const;
 
 type DefaultRunners = typeof defaultRunners[number];
-type Runners = {[key in DefaultRunners]: SystemRunner} & {
+type Runners = { [key in DefaultRunners]: SystemRunner } & {
     // eslint-disable-next-line @typescript-eslint/ban-types
     [K: ({} & string) | ({} & symbol)]: SystemRunner;
 };
@@ -135,8 +132,7 @@ type Runners = {[key in DefaultRunners]: SystemRunner} & {
 /* eslint-enable max-len */
 export class AbstractRenderer<
     PIPES, OPTIONS extends SharedRendererOptions, CANVAS extends ICanvas = HTMLCanvasElement
-> extends EventEmitter<{resize: [screenWidth: number, screenHeight: number, resolution: number]}>
-{
+> extends EventEmitter<{ resize: [screenWidth: number, screenHeight: number, resolution: number] }> {
     /** The default options for the renderer. */
     public static defaultOptions = {
         /**
@@ -200,8 +196,7 @@ export class AbstractRenderer<
      * Systems are attached dynamically to this class when added.
      * @param config - the config for the system manager
      */
-    constructor(config: RendererConfig)
-    {
+    constructor(config: RendererConfig) {
         super();
         this.type = config.type;
         this.name = config.name;
@@ -218,8 +213,7 @@ export class AbstractRenderer<
      * Initialize the renderer.
      * @param options - The options to use to create the renderer.
      */
-    public async init(options: Partial<OPTIONS> = {})
-    {
+    public async init(options: Partial<OPTIONS> = {}) {
         const skip = options.skipExtensionImports === true ? true : options.manageImports === false;
 
         await loadEnvironmentExtensions(skip);
@@ -228,8 +222,7 @@ export class AbstractRenderer<
         this._addPipes(this.config.renderPipes, this.config.renderPipeAdaptors);
 
         // loop through all systems...
-        for (const systemName in this._systemsHash)
-        {
+        for (const systemName in this._systemsHash) {
             const system = this._systemsHash[systemName];
 
             const defaultSystemOptions = (system.constructor as any).defaultOptions;
@@ -241,8 +234,7 @@ export class AbstractRenderer<
         this._roundPixels = options.roundPixels ? 1 : 0;
 
         // await emits..
-        for (let i = 0; i < this.runners.init.items.length; i++)
-        {
+        for (let i = 0; i < this.runners.init.items.length; i++) {
             await this.runners.init.items[i].init(options);
         }
 
@@ -258,17 +250,14 @@ export class AbstractRenderer<
      */
     public render(options: RenderOptions | Container): void;
     /** @deprecated since 8.0.0 */
-    public render(container: Container, options: {renderTexture: any}): void;
-    public render(args: RenderOptions | Container, deprecated?: {renderTexture: any}): void
-    {
+    public render(container: Container, options: { renderTexture: any }): void;
+    public render(args: RenderOptions | Container, deprecated?: { renderTexture: any }): void {
         let options = args;
 
-        if (options instanceof Container)
-        {
+        if (options instanceof Container) {
             options = { container: options };
 
-            if (deprecated)
-            {
+            if (deprecated) {
                 // #if _DEBUG
                 // eslint-disable-next-line max-len
                 deprecation(v8_0_0, 'passing a second argument is deprecated, please use render options instead');
@@ -281,22 +270,19 @@ export class AbstractRenderer<
         options.target ||= this.view.renderTarget;
 
         // TODO: we should eventually fix events so that it can handle multiple canvas elements
-        if (options.target === this.view.renderTarget)
-        {
+        if (options.target === this.view.renderTarget) {
             // TODO get rid of this
             this._lastObjectRendered = options.container;
             options.clearColor = this.background.colorRgba;
         }
 
-        if (options.clearColor)
-        {
+        if (options.clearColor) {
             const isRGBAArray = Array.isArray(options.clearColor) && options.clearColor.length === 4;
 
             options.clearColor = isRGBAArray ? options.clearColor : Color.shared.setValue(options.clearColor).toArray();
         }
 
-        if (!options.transform)
-        {
+        if (!options.transform) {
             options.container.updateLocalTransform();
             options.transform = options.container.localTransform;
         }
@@ -318,20 +304,17 @@ export class AbstractRenderer<
      * @param desiredScreenHeight - The desired height of the screen.
      * @param resolution - The resolution / device pixel ratio of the renderer.
      */
-    public resize(desiredScreenWidth: number, desiredScreenHeight: number, resolution?: number): void
-    {
+    public resize(desiredScreenWidth: number, desiredScreenHeight: number, resolution?: number): void {
         const previousResolution = this.view.resolution;
 
         this.view.resize(desiredScreenWidth, desiredScreenHeight, resolution);
         this.emit('resize', this.view.screen.width, this.view.screen.height, this.view.resolution);
-        if (resolution !== undefined && resolution !== previousResolution)
-        {
+        if (resolution !== undefined && resolution !== previousResolution) {
             this.runners.resolutionChange.emit(resolution);
         }
     }
 
-    public clear(options: ClearOptions = {}): void
-    {
+    public clear(options: ClearOptions = {}): void {
         // override!
         const renderer = this as unknown as Renderer;
 
@@ -347,13 +330,11 @@ export class AbstractRenderer<
     }
 
     /** The resolution / device pixel ratio of the renderer. */
-    get resolution(): number
-    {
+    get resolution(): number {
         return this.view.resolution;
     }
 
-    set resolution(value: number)
-    {
+    set resolution(value: number) {
         this.view.resolution = value;
         this.runners.resolutionChange.emit(value);
     }
@@ -364,8 +345,7 @@ export class AbstractRenderer<
      * @readonly
      * @default 800
      */
-    get width(): number
-    {
+    get width(): number {
         return this.view.texture.frame.width;
     }
 
@@ -373,8 +353,7 @@ export class AbstractRenderer<
      * Same as view.height, actual number of pixels in the canvas by vertical.
      * @default 600
      */
-    get height(): number
-    {
+    get height(): number {
         return this.view.texture.frame.height;
     }
 
@@ -383,8 +362,7 @@ export class AbstractRenderer<
      * The canvas element that everything is drawn to.
      * @type {environment.ICanvas}
      */
-    get canvas(): CANVAS
-    {
+    get canvas(): CANVAS {
         return this.view.canvas as CANVAS;
     }
 
@@ -392,8 +370,7 @@ export class AbstractRenderer<
      * the last object rendered by the renderer. Useful for other plugins like interaction managers
      * @readonly
      */
-    get lastObjectRendered(): Container
-    {
+    get lastObjectRendered(): Container {
         return this._lastObjectRendered;
     }
 
@@ -402,8 +379,7 @@ export class AbstractRenderer<
      * @readonly
      * @default true
      */
-    get renderingToScreen(): boolean
-    {
+    get renderingToScreen(): boolean {
         const renderer = this as unknown as Renderer;
 
         return renderer.renderTarget.renderingToScreen;
@@ -414,8 +390,7 @@ export class AbstractRenderer<
      *
      * Its safe to use as filterArea or hitArea for the whole stage.
      */
-    get screen(): Rectangle
-    {
+    get screen(): Rectangle {
         return this.view.screen;
     }
 
@@ -423,20 +398,16 @@ export class AbstractRenderer<
      * Create a bunch of runners based of a collection of ids
      * @param runnerIds - the runner ids to add
      */
-    private _addRunners(...runnerIds: string[]): void
-    {
-        runnerIds.forEach((runnerId) =>
-        {
+    private _addRunners(...runnerIds: string[]): void {
+        runnerIds.forEach((runnerId) => {
             this.runners[runnerId] = new SystemRunner(runnerId);
         });
     }
 
-    private _addSystems(systems: RendererConfig['systems']): void
-    {
+    private _addSystems(systems: RendererConfig['systems']): void {
         let i: keyof typeof systems;
 
-        for (i in systems)
-        {
+        for (i in systems) {
             const val = systems[i];
 
             this._addSystem(val.value, val.name);
@@ -452,12 +423,10 @@ export class AbstractRenderer<
      *        sure it doesn't collide with properties on Renderer.
      * @returns Return instance of renderer
      */
-    private _addSystem(ClassRef: SystemConstructor, name: string): this
-    {
+    private _addSystem(ClassRef: SystemConstructor, name: string): this {
         const system = new ClassRef(this as unknown as Renderer);
 
-        if ((this as any)[name])
-        {
+        if ((this as any)[name]) {
             throw new Error(`Whoops! The name "${name}" is already in use`);
         }
 
@@ -465,25 +434,21 @@ export class AbstractRenderer<
 
         this._systemsHash[name] = system;
 
-        for (const i in this.runners)
-        {
+        for (const i in this.runners) {
             this.runners[i].add(system);
         }
 
         return this;
     }
 
-    private _addPipes(pipes: RendererConfig['renderPipes'], pipeAdaptors: RendererConfig['renderPipeAdaptors']): void
-    {
-        const adaptors = pipeAdaptors.reduce((acc, adaptor) =>
-        {
+    private _addPipes(pipes: RendererConfig['renderPipes'], pipeAdaptors: RendererConfig['renderPipeAdaptors']): void {
+        const adaptors = pipeAdaptors.reduce((acc, adaptor) => {
             acc[adaptor.name] = adaptor.value;
 
             return acc;
         }, {} as Record<string, any>);
 
-        pipes.forEach((pipe) =>
-        {
+        pipes.forEach((pipe) => {
             const PipeClass = pipe.value;
             const name = pipe.name;
 
@@ -497,14 +462,12 @@ export class AbstractRenderer<
         });
     }
 
-    public destroy(options: RendererDestroyOptions = false): void
-    {
+    public destroy(options: RendererDestroyOptions = false): void {
         this.runners.destroy.items.reverse();
         this.runners.destroy.emit(options);
 
         // destroy all runners
-        Object.values(this.runners).forEach((runner) =>
-        {
+        Object.values(this.runners).forEach((runner) => {
             runner.destroy();
         });
 
@@ -519,8 +482,7 @@ export class AbstractRenderer<
      * @param options - options or container target to use when generating the texture
      * @returns a texture
      */
-    public generateTexture(options: GenerateTextureOptions | Container): Texture
-    {
+    public generateTexture(options: GenerateTextureOptions | Container): Texture {
         return this.textureGenerator.generateTexture(options);
     }
 
@@ -528,8 +490,7 @@ export class AbstractRenderer<
      * Whether the renderer will round coordinates to whole pixels when rendering.
      * Can be overridden on a per scene item basis.
      */
-    get roundPixels(): boolean
-    {
+    get roundPixels(): boolean {
         return !!this._roundPixels;
     }
 
@@ -539,12 +500,11 @@ export class AbstractRenderer<
      * @private
      * @ignore
      */
-    public _unsafeEvalCheck(): void
-    {
-        if (!unsafeEvalSupported())
-        {
-            throw new Error('Current environment does not allow unsafe-eval, '
-               + 'please use pixi.js/unsafe-eval module to enable support.');
-        }
+    public _unsafeEvalCheck(): void {
+        // if (!unsafeEvalSupported())
+        // {
+        //     throw new Error('Current environment does not allow unsafe-eval, '
+        //        + 'please use pixi.js/unsafe-eval module to enable support.');
+        // }
     }
 }

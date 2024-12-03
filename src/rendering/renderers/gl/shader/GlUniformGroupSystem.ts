@@ -1,5 +1,5 @@
 import { ExtensionType } from '../../../../extensions/Extensions';
-import { generateUniformsSync } from './utils/generateUniformsSync';
+// import { generateUniformsSync } from './utils/generateUniformsSync';
 
 import type { UniformsSyncCallback } from '../../shared/shader/types';
 import type { UniformGroup } from '../../shared/shader/UniformGroup';
@@ -7,13 +7,13 @@ import type { System } from '../../shared/system/System';
 import type { GlRenderingContext } from '../context/GlRenderingContext';
 import type { WebGLRenderer } from '../WebGLRenderer';
 import type { GlProgram, GlUniformData } from './GlProgram';
+import { generateUniformsSyncPolyfill } from '../../../../unsafe-eval/uniforms/generateUniformsSyncPolyfill';
 
 /**
  * System plugin to the renderer to manage shaders.
  * @memberof rendering
  */
-export class GlUniformGroupSystem implements System
-{
+export class GlUniformGroupSystem implements System {
     /** @ignore */
     public static extension = {
         type: [
@@ -35,16 +35,14 @@ export class GlUniformGroupSystem implements System
     private _uniformGroupSyncHash: Record<string, Record<string, UniformsSyncCallback>> = {};
 
     /** @param renderer - The renderer this System works for. */
-    constructor(renderer: WebGLRenderer)
-    {
+    constructor(renderer: WebGLRenderer) {
         this._renderer = renderer;
 
         this.gl = null;
         this._cache = {};
     }
 
-    protected contextChange(gl: GlRenderingContext): void
-    {
+    protected contextChange(gl: GlRenderingContext): void {
         this.gl = gl;
     }
 
@@ -55,12 +53,10 @@ export class GlUniformGroupSystem implements System
      * @param syncData
      * @param syncData.textureCount
      */
-    public updateUniformGroup(group: UniformGroup, program: GlProgram, syncData: { textureCount: number }): void
-    {
+    public updateUniformGroup(group: UniformGroup, program: GlProgram, syncData: { textureCount: number }): void {
         const programData = this._renderer.shader._getProgramData(program);
 
-        if (!group.isStatic || group._dirtyId !== programData.uniformDirtyGroups[group.uid])
-        {
+        if (!group.isStatic || group._dirtyId !== programData.uniformDirtyGroups[group.uid]) {
             programData.uniformDirtyGroups[group.uid] = group._dirtyId;
 
             const syncFunc = this._getUniformSyncFunction(group, program);
@@ -74,21 +70,18 @@ export class GlUniformGroupSystem implements System
      * @param group
      * @param program
      */
-    private _getUniformSyncFunction(group: UniformGroup, program: GlProgram): UniformsSyncCallback
-    {
+    private _getUniformSyncFunction(group: UniformGroup, program: GlProgram): UniformsSyncCallback {
         return this._uniformGroupSyncHash[group._signature]?.[program._key]
             || this._createUniformSyncFunction(group, program);
     }
 
-    private _createUniformSyncFunction(group: UniformGroup, program: GlProgram): UniformsSyncCallback
-    {
+    private _createUniformSyncFunction(group: UniformGroup, program: GlProgram): UniformsSyncCallback {
         const uniformGroupSyncHash = this._uniformGroupSyncHash[group._signature]
             || (this._uniformGroupSyncHash[group._signature] = {});
 
         const id = this._getSignature(group, program._uniformData, 'u');
 
-        if (!this._cache[id])
-        {
+        if (!this._cache[id]) {
             this._cache[id] = this._generateUniformsSync(group, program._uniformData);
         }
 
@@ -97,9 +90,9 @@ export class GlUniformGroupSystem implements System
         return uniformGroupSyncHash[program._key];
     }
 
-    private _generateUniformsSync(group: UniformGroup, uniformData: Record<string, GlUniformData>): UniformsSyncCallback
-    {
-        return generateUniformsSync(group, uniformData);
+    private _generateUniformsSync(group: UniformGroup, uniformData: Record<string, GlUniformData>): UniformsSyncCallback {
+        return generateUniformsSyncPolyfill(group, uniformData)
+        // return generateUniformsSync(group, uniformData);
     }
 
     /**
@@ -110,18 +103,15 @@ export class GlUniformGroupSystem implements System
      * @param preFix
      * @returns Unique signature of the uniform group
      */
-    private _getSignature(group: UniformGroup, uniformData: Record<string, any>, preFix: string): string
-    {
+    private _getSignature(group: UniformGroup, uniformData: Record<string, any>, preFix: string): string {
         const uniforms = group.uniforms;
 
         const strings = [`${preFix}-`];
 
-        for (const i in uniforms)
-        {
+        for (const i in uniforms) {
             strings.push(i);
 
-            if (uniformData[i])
-            {
+            if (uniformData[i]) {
                 strings.push(uniformData[i].type);
             }
         }
@@ -130,8 +120,7 @@ export class GlUniformGroupSystem implements System
     }
 
     /** Destroys this System and removes all its textures. */
-    public destroy(): void
-    {
+    public destroy(): void {
         this._renderer = null;
         this._cache = null;
     }

@@ -4,20 +4,20 @@ import { Geometry } from '../../../rendering/renderers/shared/geometry/Geometry'
 import { getAttributeInfoFromFormat } from '../../../rendering/renderers/shared/geometry/utils/getAttributeInfoFromFormat';
 import { ViewableBuffer } from '../../../utils/data/ViewableBuffer';
 import { createIndicesForQuads } from './utils/createIndicesForQuads';
-import { generateParticleUpdateFunction } from './utils/generateParticleUpdateFunction';
+// import { generateParticleUpdateFunction } from './utils/generateParticleUpdateFunction';
 
 import type { IndexBufferArray } from '../../../rendering/renderers/shared/geometry/Geometry';
 import type { IParticle } from './Particle';
 import type { ParticleRendererProperty } from './particleData';
 import type { ParticleUpdateFunction } from './utils/generateParticleUpdateFunction';
+import { generateParticleUpdatePolyfill } from '../../../unsafe-eval/particle/generateParticleUpdatePolyfill';
 
 /**
  * Options for creating a ParticleBuffer.
  * @property {number} size - The size of the particle buffer.
  * @property {Record<string, ParticleRendererProperty>} properties - A record of attributes that the particle container uses.
  */
-export interface ParticleBufferOptions
-{
+export interface ParticleBufferOptions {
     size: number;
     properties: Record<string, ParticleRendererProperty>;
 }
@@ -27,8 +27,7 @@ export interface ParticleBufferOptions
  * It also contains the upload functions for the static and dynamic properties.
  * @internal
  */
-export class ParticleBuffer
-{
+export class ParticleBuffer {
     /** The buffer containing static attribute data for all elements in the batch. */
     public staticAttributeBuffer: ViewableBuffer;
     /** The buffer containing dynamic attribute data for all elements in the batch. */
@@ -54,8 +53,7 @@ export class ParticleBuffer
         staticUpdate: ParticleUpdateFunction;
     }> = {};
 
-    constructor(options: ParticleBufferOptions)
-    {
+    constructor(options: ParticleBufferOptions) {
         // size in sprites!
         const size = this._size = options.size ?? 1000;
 
@@ -66,18 +64,15 @@ export class ParticleBuffer
         let staticVertexSize = 0;
         let dynamicVertexSize = 0;
 
-        for (const i in properties)
-        {
+        for (const i in properties) {
             const property = properties[i];
             const attributeInfo = getAttributeInfoFromFormat(property.format);
 
-            if (property.dynamic)
-            {
+            if (property.dynamic) {
                 // dynamic.
                 dynamicVertexSize += attributeInfo.stride;
             }
-            else
-            {
+            else {
                 // static.
                 staticVertexSize += attributeInfo.stride;
             }
@@ -112,13 +107,11 @@ export class ParticleBuffer
             usage: BufferUsage.VERTEX | BufferUsage.COPY_DST
         });
 
-        for (const i in properties)
-        {
+        for (const i in properties) {
             const property = properties[i];
             const attributeInfo = getAttributeInfoFromFormat(property.format);
 
-            if (property.dynamic)
-            {
+            if (property.dynamic) {
                 geometry.addAttribute(property.attributeName, {
                     buffer: this._dynamicBuffer,
                     stride: this._dynamicStride * 4,
@@ -127,8 +120,7 @@ export class ParticleBuffer
                 });
                 dynamicOffset += attributeInfo.size;
             }
-            else
-            {
+            else {
                 geometry.addAttribute(property.attributeName, {
                     buffer: this._staticBuffer,
                     stride: this._staticStride * 4,
@@ -149,31 +141,27 @@ export class ParticleBuffer
         this.geometry = geometry;
     }
 
-    public getParticleUpdate(properties: Record<string, ParticleRendererProperty>)
-    {
+    public getParticleUpdate(properties: Record<string, ParticleRendererProperty>) {
         const key = getParticleSyncKey(properties);
 
-        if (this._generateParticleUpdateCache[key])
-        {
+        if (this._generateParticleUpdateCache[key]) {
             return this._generateParticleUpdateCache[key];
         }
 
-        this._generateParticleUpdateCache[key] = this.generateParticleUpdate(properties);
+        this._generateParticleUpdateCache[key] = this.generateParticleUpdate(properties) as unknown as any;
 
         return this._generateParticleUpdateCache[key];
     }
 
-    public generateParticleUpdate(properties: Record<string, ParticleRendererProperty>)
-    {
-        return generateParticleUpdateFunction(properties);
+    public generateParticleUpdate(properties: Record<string, ParticleRendererProperty>) {
+        return generateParticleUpdatePolyfill(Object.values(properties))
+        // return generateParticleUpdateFunction(properties);
     }
 
-    public update(particles: IParticle[], uploadStatic: boolean)
-    {
+    public update(particles: IParticle[], uploadStatic: boolean) {
         // first resize the buffers if needed!
         // TODO resize!
-        if (particles.length > this._size)
-        {
+        if (particles.length > this._size) {
             uploadStatic = true;
 
             this._size = Math.max(particles.length, (this._size * 1.5) | 0);
@@ -193,8 +181,7 @@ export class ParticleBuffer
         this._dynamicBuffer.setDataWithSize(
             this.dynamicAttributeBuffer.float32View, particles.length * this._dynamicStride * 4, true);
 
-        if (uploadStatic)
-        {
+        if (uploadStatic) {
             const staticAttributeBuffer = this.staticAttributeBuffer;
 
             this._staticUpload(particles, staticAttributeBuffer.float32View, staticAttributeBuffer.uint32View);
@@ -204,20 +191,17 @@ export class ParticleBuffer
         }
     }
 
-    public destroy()
-    {
+    public destroy() {
         this._staticBuffer.destroy();
         this._dynamicBuffer.destroy();
         this.geometry.destroy();
     }
 }
 
-function getParticleSyncKey(properties: Record<string, ParticleRendererProperty>)
-{
+function getParticleSyncKey(properties: Record<string, ParticleRendererProperty>) {
     const keyGen: string[] = [];
 
-    for (const key in properties)
-    {
+    for (const key in properties) {
         const property = properties[key];
 
         keyGen.push(key, property.code, property.dynamic ? 'd' : 's');
@@ -225,4 +209,3 @@ function getParticleSyncKey(properties: Record<string, ParticleRendererProperty>
 
     return keyGen.join('_');
 }
-

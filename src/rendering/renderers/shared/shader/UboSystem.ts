@@ -1,4 +1,4 @@
-import { unsafeEvalSupported } from '../../../../utils/browser/unsafeEvalSupported';
+// import { unsafeEvalSupported } from '../../../../utils/browser/unsafeEvalSupported';
 import { Buffer } from '../buffer/Buffer';
 import { BufferUsage } from '../buffer/const';
 
@@ -6,8 +6,7 @@ import type { System } from '../system/System';
 import type { UboElement, UboLayout, UniformData, UniformsSyncCallback } from './types';
 import type { UniformGroup } from './UniformGroup';
 
-export interface UboAdaptor
-{
+export interface UboAdaptor {
     createUboElements: (uniformData: UniformData[]) => UboLayout;
     generateUboSync: (uboElements: UboElement[]) => UniformsSyncCallback;
 }
@@ -16,8 +15,7 @@ export interface UboAdaptor
  * System plugin to the renderer to manage uniform buffers.
  * @memberof rendering
  */
-export class UboSystem implements System
-{
+export class UboSystem implements System {
     /** Cache of uniform buffer layouts and sync functions, so we don't have to re-create them */
     private _syncFunctionHash: Record<string, {
         layout: UboLayout,
@@ -26,8 +24,7 @@ export class UboSystem implements System
 
     private readonly _adaptor: UboAdaptor;
 
-    constructor(adaptor: UboAdaptor)
-    {
+    constructor(adaptor: UboAdaptor) {
         this._adaptor = adaptor;
 
         // Validation check that this environment support `new Function`
@@ -39,17 +36,15 @@ export class UboSystem implements System
      * throwing an error if platform doesn't support unsafe-evals.
      * @private
      */
-    private _systemCheck(): void
-    {
-        if (!unsafeEvalSupported())
-        {
-            throw new Error('Current environment does not allow unsafe-eval, '
-                 + 'please use pixi.js/unsafe-eval module to enable support.');
-        }
+    private _systemCheck(): void {
+        // if (!unsafeEvalSupported())
+        // {
+        //     throw new Error('Current environment does not allow unsafe-eval, '
+        //          + 'please use pixi.js/unsafe-eval module to enable support.');
+        // }
     }
 
-    public ensureUniformGroup(uniformGroup: UniformGroup): void
-    {
+    public ensureUniformGroup(uniformGroup: UniformGroup): void {
         const uniformData = this.getUniformGroupData(uniformGroup);
 
         uniformGroup.buffer ||= new Buffer({
@@ -58,19 +53,16 @@ export class UboSystem implements System
         });
     }
 
-    public getUniformGroupData(uniformGroup: UniformGroup)
-    {
+    public getUniformGroupData(uniformGroup: UniformGroup) {
         return this._syncFunctionHash[uniformGroup._signature] || this._initUniformGroup(uniformGroup);
     }
 
-    private _initUniformGroup(uniformGroup: UniformGroup)
-    {
+    private _initUniformGroup(uniformGroup: UniformGroup) {
         const uniformGroupSignature = uniformGroup._signature;
 
         let uniformData = this._syncFunctionHash[uniformGroupSignature];
 
-        if (!uniformData)
-        {
+        if (!uniformData) {
             const elements = Object.keys(uniformGroup.uniformStructures).map((i) => uniformGroup.uniformStructures[i]);
 
             const layout = this._adaptor.createUboElements(elements);
@@ -88,13 +80,11 @@ export class UboSystem implements System
 
     private _generateUboSync(
         uboElements: UboElement[],
-    ): UniformsSyncCallback
-    {
+    ): UniformsSyncCallback {
         return this._adaptor.generateUboSync(uboElements);
     }
 
-    public syncUniformGroup(uniformGroup: UniformGroup, data?: Float32Array, offset?: number): boolean
-    {
+    public syncUniformGroup(uniformGroup: UniformGroup, data?: Float32Array, offset?: number): boolean {
         const uniformGroupData = this.getUniformGroupData(uniformGroup);
 
         uniformGroup.buffer ||= new Buffer({
@@ -104,8 +94,7 @@ export class UboSystem implements System
 
         let dataInt32: Int32Array = null;
 
-        if (!data)
-        {
+        if (!data) {
             data = uniformGroup.buffer.data as Float32Array;
             dataInt32 = uniformGroup.buffer.dataInt32;
         }
@@ -116,8 +105,7 @@ export class UboSystem implements System
         return true;
     }
 
-    public updateUniformGroup(uniformGroup: UniformGroup): boolean
-    {
+    public updateUniformGroup(uniformGroup: UniformGroup): boolean {
         if (uniformGroup.isStatic && !uniformGroup._dirtyId) return false;
         uniformGroup._dirtyId = 0;
 
@@ -128,8 +116,7 @@ export class UboSystem implements System
         return synced;
     }
 
-    public destroy(): void
-    {
+    public destroy(): void {
         this._syncFunctionHash = null;
     }
 }
